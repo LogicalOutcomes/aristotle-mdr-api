@@ -182,15 +182,19 @@ class ConceptSearchSerializer(serializers.Serializer):
         data = {}
         return ConceptDetailSerializer(instance.object,context={'request': self.request}).data
 
-class SearchList(APIView):
+from haystack.models import SearchResult
+#class SearchList(APIView):
+class SearchViewSet(viewsets.GenericViewSet):
     "Search."
 
     serializer_class = ConceptSearchSerializer
     pagination_class = ConceptResultsPagination
+    base_name="search"
 
-    def get(self, request, format=None):
+#    def get(self, request, format=None):
+    def list(self, request):
         if not self.request.QUERY_PARAMS.keys():
-            return Response({'search_opts':'q model state ra'.split()})
+            return Response({'search_options':'q model state ra'.split()})
 
         items = PermissionSearchQuerySet().auto_query(self.request.QUERY_PARAMS['q'])
         if self.request.QUERY_PARAMS.get('models') is not None:
