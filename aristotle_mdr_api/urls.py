@@ -7,6 +7,7 @@ router = routers.DefaultRouter()
 router.register(r'concepts', views.ConceptViewSet)
 router.register(r'types', views.ConceptTypeViewSet)
 router.register(r'search', views.SearchViewSet, base_name="search")
+router.register(r'ras', views.RegistrationAuthorityViewSet)
 
 urlpatterns = patterns('',
     url(r'^', include(router.urls)),
