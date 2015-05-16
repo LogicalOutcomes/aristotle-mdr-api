@@ -25,6 +25,6 @@ Quick start
 
 #. Include the API URL definitions in your Django URLconf file ::
 
-        url(r'^api/', include('aristotle_mdr_api.urls')),
+        url(r'^api/', include('aristotle_mdr_api.urls',app_name="aristotle_mdr_api",namespace="aristotle"))),
 
 #. Run ``python manage.py migrate`` to update the database to include the models for the API.
