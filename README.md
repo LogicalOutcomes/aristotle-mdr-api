@@ -1,1 +1,0 @@
-# aristotle-mdr-api
