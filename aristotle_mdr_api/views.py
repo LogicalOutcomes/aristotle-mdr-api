@@ -17,11 +17,11 @@ from aristotle_mdr.forms.search import PermissionSearchQuerySet
 from rest_framework import viewsets
 
 class DescriptionStubSerializerMixin(object):
-    description = serializers.SerializerMethodField()
-    def get_description(self,instance):
+    definition = serializers.SerializerMethodField()
+    def get_definition(self,instance):
         from django.utils.html import strip_tags
         import re
-        d = strip_tags(instance.description)
+        d = strip_tags(instance.definition)
         d = re.sub(r"\s+", " ",d, flags=re.UNICODE)
         d=d.split()
         if len(d) > 100:
@@ -29,12 +29,12 @@ class DescriptionStubSerializerMixin(object):
         return " ".join(d)
 
 
-standard_fields = ('id','concept_type','api_url','name','status','description')
+standard_fields = ('id','concept_type','api_url','name','status','definition')
 class ConceptSerializerBase(serializers.ModelSerializer):
     api_url = serializers.HyperlinkedIdentityField(view_name='aristotle_mdr_api:_concept-detail', format='html')
     concept_type = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
-    description = serializers.SerializerMethodField()
+    definition = serializers.SerializerMethodField()
 
     class Meta:
         model = models._concept
@@ -46,8 +46,8 @@ class ConceptSerializerBase(serializers.ModelSerializer):
     def get_status(self,instance):
         out = {"public":instance.is_public(),'locked':instance.is_locked()}
         return out
-    def get_description(self,instance):
-        return instance.description
+    def get_definition(self,instance):
+        return instance.definition
 
 class ConceptListSerializer(DescriptionStubSerializerMixin,ConceptSerializerBase):
     pass
@@ -276,13 +276,13 @@ class RegistrationAuthorityListSerializer(serializers.ModelSerializer,Descriptio
     api_url = serializers.HyperlinkedIdentityField(view_name='aristotle_mdr_api:registrationauthority-detail', format='html')
     class Meta:
         model = models.RegistrationAuthority
-        fields = ('id','api_url','name','description','locked_state','public_state')
+        fields = ('id','api_url','name','definition','locked_state','public_state')
 
 class RegistrationAuthorityDetailSerializer(serializers.ModelSerializer):
     state_meanings = serializers.SerializerMethodField()
     class Meta:
         model = models.RegistrationAuthority
-        fields = ('id','name','description','locked_state','public_state','state_meanings')
+        fields = ('id','name','definition','locked_state','public_state','state_meanings')
     def get_state_meanings(self,instance):
         return instance.statusDescriptions()
 
