@@ -12,16 +12,29 @@ from rest_framework.decorators import detail_route
 
 from django.forms import model_to_dict
 from aristotle_mdr import models, perms
-from aristotle_mdr.forms.search import PermissionSearchForm,PermissionSearchQuerySet
+from aristotle_mdr.forms.search import PermissionSearchQuerySet
 
 from rest_framework import viewsets
 
-standard_fields = ('id','concept_type','api_url','name','status','description')
+class DescriptionStubSerializerMixin(object):
+    definition = serializers.SerializerMethodField()
+    def get_definition(self,instance):
+        from django.utils.html import strip_tags
+        import re
+        d = strip_tags(instance.definition)
+        d = re.sub(r"\s+", " ",d, flags=re.UNICODE)
+        d=d.split()
+        if len(d) > 100:
+            d = d[0:100] + ["..."]
+        return " ".join(d)
+
+
+standard_fields = ('id','concept_type','api_url','name','status','definition')
 class ConceptSerializerBase(serializers.ModelSerializer):
     api_url = serializers.HyperlinkedIdentityField(view_name='aristotle_mdr_api:_concept-detail', format='html')
     concept_type = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
-    description = serializers.SerializerMethodField()
+    definition = serializers.SerializerMethodField()
 
     class Meta:
         model = models._concept
@@ -33,19 +46,11 @@ class ConceptSerializerBase(serializers.ModelSerializer):
     def get_status(self,instance):
         out = {"public":instance.is_public(),'locked':instance.is_locked()}
         return out
-    def get_description(self,instance):
-        return instance.description
+    def get_definition(self,instance):
+        return instance.definition
 
-class ConceptListSerializer(ConceptSerializerBase):
-    def get_description(self,instance):
-        from django.utils.html import strip_tags
-        import re
-        d = strip_tags(instance.description)
-        d = re.sub(r"\s+", " ",d, flags=re.UNICODE)
-        d=d.split()
-        if len(d) > 100:
-            d = d[0:100] + ["..."]
-        return " ".join(d)
+class ConceptListSerializer(DescriptionStubSerializerMixin,ConceptSerializerBase):
+    pass
 
 class ConceptDetailSerializer(ConceptSerializerBase):
     superseded_by = serializers.HyperlinkedRelatedField(view_name='aristotle_mdr_api:_concept-detail', format='html',read_only='True')
@@ -77,9 +82,44 @@ class MultiSerializerViewSet(viewsets.ReadOnlyModelViewSet):
         return self.serializers.get(self.action,self.serializers['default'])
 
 class ConceptViewSet(MultiSerializerViewSet):
-    """
-    This viewset automatically provides `list` and `detail` actions.
-    """
+    __doc__ = """
+    Provides access to a paginated list of concepts within the fields:
+
+        %s
+
+    A single concept can be retrieved but appending the `id` for that
+    authority to the URL, giving access to the fields:
+
+        %s
+
+    Accepts the following GET parameters:
+
+     * `type` (string) : restricts returned items to those of the given model.
+
+        A list of models can be accessed at `/api/types/`, filterable
+        models are limited to the values of the `model` on each item returned
+        from the list.
+
+        Available models are also available in the `concept_type.model`
+        attribute for a particular concept from the items in this list.
+
+    * `is_public` (boolean) : restricts returned items to those which are publicly visible/private (True/False)
+
+    * `is_locked` (boolean) : restricts returned items to those which are locked/unlocked (True/False)
+
+    The following options can only be used if `type` is set to a valid concept type.
+
+     * `superseded_by` (integer) : restricts returned items to those that are
+        superseded by the concept with an id that matches the given value.
+
+     * `is_superseded` (boolean) : restricts returned items to those that are
+        superseded by any other concept.
+
+        Note: due to database restrictions it is not possible to restrict to only
+        concepts that supersede another concepts.
+
+    ---
+    """%(ConceptListSerializer.Meta.fields,ConceptDetailSerializer.Meta.fields)
     queryset = models._concept.objects.all()
     serializer_class = ConceptListSerializer
     pagination_class = ConceptResultsPagination
@@ -92,9 +132,6 @@ class ConceptViewSet(MultiSerializerViewSet):
 
     def get_queryset(self):
         """
-        Optionally restricts the returned purchases to a given user,
-        by filtering against a `username` query parameter in the URL.
-
         Possible arguments include:
 
         type (string) : restricts to a particular concept type, eg. dataelement
@@ -110,6 +147,24 @@ class ConceptViewSet(MultiSerializerViewSet):
             else:
                 model = concepttype
                 queryset = ContentType.objects.get(model=model).model_class().objects.all()
+
+            superseded_by_id = self.request.QUERY_PARAMS.get('superseded_by', None)
+            if superseded_by_id is not None:
+                queryset = queryset.filter(superseded_by=superseded_by_id)
+            is_superseded = self.request.QUERY_PARAMS.get('is_superseded', False)
+            if is_superseded:
+                queryset = queryset.filter(superseded_by__isnull=False)
+
+        locked = self.request.QUERY_PARAMS.get('is_locked', None)
+        if locked is not None:
+            locked = locked not in ["False","0","F"]
+            queryset = queryset.filter(_is_locked=locked)
+        public = self.request.QUERY_PARAMS.get('is_public', None)
+        if public is not None:
+            public = public not in ["False","0","F"]
+            queryset = queryset.filter(_is_public=public)
+
+
         return queryset.visible(self.request.user)
 
     def get_object(self):
@@ -216,3 +271,38 @@ class SearchViewSet(viewsets.GenericViewSet):
         items = items[:10]
         serializer = ConceptSearchSerializer(items, request=self.request, many=True)
         return Response(serializer.data)
+
+class RegistrationAuthorityListSerializer(serializers.ModelSerializer,DescriptionStubSerializerMixin):
+    api_url = serializers.HyperlinkedIdentityField(view_name='aristotle_mdr_api:registrationauthority-detail', format='html')
+    class Meta:
+        model = models.RegistrationAuthority
+        fields = ('id','api_url','name','definition','locked_state','public_state')
+
+class RegistrationAuthorityDetailSerializer(serializers.ModelSerializer):
+    state_meanings = serializers.SerializerMethodField()
+    class Meta:
+        model = models.RegistrationAuthority
+        fields = ('id','name','definition','locked_state','public_state','state_meanings')
+    def get_state_meanings(self,instance):
+        return instance.statusDescriptions()
+
+class RegistrationAuthorityViewSet(MultiSerializerViewSet):
+    __doc__ = """
+    Provides access to a list of registration authorities with the fields:
+
+        %s
+
+    A single registration authority can be retrieved but appending the `id` for that
+    authority to the URL, giving access to the fields:
+
+        %s
+
+    ---
+    """%(RegistrationAuthorityListSerializer.Meta.fields,RegistrationAuthorityDetailSerializer.Meta.fields)
+
+    queryset = models.RegistrationAuthority.objects.all()
+    serializers = {
+        'default':  RegistrationAuthorityDetailSerializer,
+        'list':    RegistrationAuthorityListSerializer,
+        'detail':  RegistrationAuthorityDetailSerializer,
+    }
