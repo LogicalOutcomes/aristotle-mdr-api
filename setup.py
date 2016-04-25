@@ -30,7 +30,7 @@ setup(
     ],
     install_requires = [
         'djangorestframework',
-        'django-aristotle-metadata-registry'
+        'aristotle-metadata-registry'
     ]
 
 )
