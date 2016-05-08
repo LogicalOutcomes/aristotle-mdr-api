@@ -138,7 +138,7 @@ class ConceptViewSet(MultiSerializerViewSet):
 
         """
         queryset = self.queryset
-        concepttype = self.request.QUERY_PARAMS.get('type', None)
+        concepttype = self.request.query_params.get('type', None)
         if concepttype is not None:
             ct = concepttype.lower().split(":",1)
             if len(ct) == 2:
@@ -148,18 +148,18 @@ class ConceptViewSet(MultiSerializerViewSet):
                 model = concepttype
                 queryset = ContentType.objects.get(model=model).model_class().objects.all()
 
-            superseded_by_id = self.request.QUERY_PARAMS.get('superseded_by', None)
+            superseded_by_id = self.request.query_params.get('superseded_by', None)
             if superseded_by_id is not None:
                 queryset = queryset.filter(superseded_by=superseded_by_id)
-            is_superseded = self.request.QUERY_PARAMS.get('is_superseded', False)
+            is_superseded = self.request.query_params.get('is_superseded', False)
             if is_superseded:
                 queryset = queryset.filter(superseded_by__isnull=False)
 
-        locked = self.request.QUERY_PARAMS.get('is_locked', None)
+        locked = self.request.query_params.get('is_locked', None)
         if locked is not None:
             locked = locked not in ["False","0","F"]
             queryset = queryset.filter(_is_locked=locked)
-        public = self.request.QUERY_PARAMS.get('is_public', None)
+        public = self.request.query_params.get('is_public', None)
         if public is not None:
             public = public not in ["False","0","F"]
             queryset = queryset.filter(_is_public=public)
@@ -248,13 +248,13 @@ class SearchViewSet(viewsets.GenericViewSet):
 
 #    def get(self, request, format=None):
     def list(self, request):
-        if not self.request.QUERY_PARAMS.keys():
+        if not self.request.query_params.keys():
             return Response({'search_options':'q model state ra'.split()})
 
-        items = PermissionSearchQuerySet().auto_query(self.request.QUERY_PARAMS['q'])
-        if self.request.QUERY_PARAMS.get('models') is not None:
+        items = PermissionSearchQuerySet().auto_query(self.request.query_params['q'])
+        if self.request.query_params.get('models') is not None:
             search_models = []
-            models = self.request.QUERY_PARAMS.get('models')
+            models = self.request.query_params.get('models')
             if type(models) != type([]):
                 models = [models]
             for mod in models:

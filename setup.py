@@ -29,7 +29,7 @@ setup(
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
     ],
     install_requires = [
-        'djangorestframework',
+        'djangorestframework>=3.0',
         'aristotle-metadata-registry'
     ]
 
