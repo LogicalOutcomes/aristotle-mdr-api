@@ -258,7 +258,7 @@ class SearchViewSet(viewsets.GenericViewSet):
             if type(models) != type([]):
                 models = [models]
             for mod in models:
-                    print mod
+                    print(mod)
                     if len(mod.split('.',1)) == 2:
                         app_label,model=mod.split('.',1)
                         i = ContentType.objects.get(app_label=app_label,model=model)
